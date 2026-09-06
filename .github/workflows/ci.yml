@@ -1,4 +1,4 @@
-# Pull request gate.
+# Pull request gate for new code.
 #
 # Runs on GitHub-hosted runners, ALWAYS. This workflow is triggered by
 # pull_request, which fires for pull requests from forks - so it can be
@@ -7,12 +7,26 @@
 #
 # The rule for this repository: pull_request -> ubuntu-latest.
 #                               push to a protected branch -> self-hosted.
+#
+# Targets main only, on purpose.
+#
+# main is where new code enters the system, so it is gated before the
+# merge. Promotions - main to dev to qa to prod - move code that main has
+# already tested, and deploy.yml tests the merge commit again before it
+# ships. Running this workflow on a promotion PR as well meant compiling
+# and testing the same code twice, seconds apart, and discarding the
+# first result.
+#
+# Nothing untested can reach a server: deploy.yml's deploy job declares
+# `needs: build`, so a failing build means no deployment happens at all.
+# The gate moves from before the merge to before the deployment, which is
+# where it matters for a promotion.
 
 name: CI
 
 on:
   pull_request:
-    branches: [main, dev, qa, prod]
+    branches: [main]
 
 permissions:
   contents: read
