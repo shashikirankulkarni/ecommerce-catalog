@@ -29,6 +29,13 @@
 	<properties>
 		<java.version>21</java.version>
 		<springdoc.version>3.1.0</springdoc.version>
+		<!--
+		  tomcat-embed-core arrives transitively via spring-boot-starter-webmvc,
+		  so it cannot be removed - only overridden. Spring Boot's BOM manages
+		  its version through this property, which is the supported way to bump
+		  it ahead of the next Boot release. 11.0.24 carried three criticals.
+		-->
+		<tomcat.version>11.0.25</tomcat.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -111,38 +118,6 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>${springdoc.version}</version>
-		</dependency>
-		<!-- ============================================================= -->
-		<!--  DELIBERATELY VULNERABLE DEPENDENCIES                         -->
-		<!--                                                               -->
-		<!--  Pinned to known-bad versions so the CVE scanners in Phase 3  -->
-		<!--  have real findings to report. None of these are used by any  -->
-		<!--  application code - they are on the classpath only.           -->
-		<!--                                                               -->
-		<!--  Removed in Phase 5, after the reports have been read.        -->
-		<!-- ============================================================= -->
-
-		<!-- CVE-2015-7501 / CVE-2015-6420 - deserialisation RCE.
-		     The original Java deserialisation gadget chain. -->
-		<dependency>
-			<groupId>commons-collections</groupId>
-			<artifactId>commons-collections</artifactId>
-			<version>3.2.1</version>
-		</dependency>
-
-		<!-- CVE-2022-42889 "Text4Shell" - RCE via variable interpolation. -->
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-text</artifactId>
-			<version>1.9</version>
-		</dependency>
-
-		<!-- CVE-2021-44228 "Log4Shell", CVSS 10.0, plus CVE-2021-45046.
-		     Explicit version overrides the one Spring Boot's BOM manages. -->
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-core</artifactId>
-			<version>2.14.1</version>
 		</dependency>
 	</dependencies>
 
