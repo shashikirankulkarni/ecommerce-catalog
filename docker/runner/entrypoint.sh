@@ -17,6 +17,16 @@ RUNNER_LABELS="${RUNNER_LABELS:-self-hosted,linux,arm64,catalog}"
 
 cd /home/runner
 
+# Docker creates a volume's mount point owned by root, but this runner
+# executes as `runner` - config.sh refuses to run as root. Anything the
+# runner is expected to write to has to be handed over at startup.
+for dir in /srv/frontend; do
+    if [ -d "$dir" ] && [ ! -w "$dir" ]; then
+        echo "runner: taking ownership of $dir"
+        sudo chown -R runner:runner "$dir"
+    fi
+done
+
 cleanup() {
     echo "runner: removing registration"
     ./config.sh remove --token "${RUNNER_TOKEN}" || true
