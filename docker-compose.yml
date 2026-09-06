@@ -77,6 +77,32 @@ services:
     networks:
       - catalog-net-nonprod
 
+  # Runner for the frontend repository.
+  #
+  # A self-hosted runner registers against ONE repository, so a second
+  # repository needs a second runner. An organisation account can share
+  # a runner group across repositories; a personal account cannot.
+  #
+  #   export RUNNER_TOKEN_FRONTEND=$(gh api -X POST \
+  #     repos/shashikirankulkarni/ecommerce-catalog-frontend/actions/runners/registration-token \
+  #     --jq .token)
+  runner-frontend:
+    build:
+      context: ./docker/runner
+    image: catalog-runner:local
+    container_name: frontend-runner
+    profiles: [runner, dev, all]
+    environment:
+      GH_REPO_URL: https://github.com/shashikirankulkarni/ecommerce-catalog-frontend
+      RUNNER_TOKEN: ${RUNNER_TOKEN_FRONTEND:?set RUNNER_TOKEN_FRONTEND - see comment above}
+      RUNNER_NAME: frontend-runner
+      RUNNER_LABELS: self-hosted,linux,arm64,frontend
+    volumes:
+      # Read-write: this is the only thing that writes the static files.
+      - frontend-dist:/srv/frontend
+    networks:
+      - catalog-net-nonprod
+
   # Reverse proxy. Routes on the Host header, the way an ingress or load
   # balancer does in a real deployment, so environments are reached by
   # name rather than by remembering which port each one published.
@@ -96,6 +122,10 @@ services:
       # Certificates are generated per machine and gitignored. See
       # docker/nginx/certs/README.md to recreate them.
       - ./docker/nginx/certs:/etc/nginx/certs:ro
+      # Static files for the single-page application, written by the
+      # frontend repository's deploy job. Read-only here: nginx serves
+      # them, it does not produce them.
+      - frontend-dist:/srv/frontend:ro
     networks:
       - catalog-net-nonprod
     depends_on:
@@ -110,6 +140,9 @@ services:
 
 volumes:
   pgdata-nonprod:
+  # Built frontend assets. Written by frontend-runner, read by nginx.
+  # This is the handover point between two independent deployments.
+  frontend-dist:
 
 networks:
   catalog-net-nonprod:
