@@ -49,3 +49,9 @@ reports/
 # baked into the server image, so it is deliberately NOT ignored.
 docker/server/deploy_key
 docker/server/*.pem
+
+### TLS certificates for the local proxy ###
+# Private keys are private keys, even self-signed ones. The certificate
+# itself is harmless but is regenerated per machine, so neither is
+# committed. docker/nginx/certs/README.md documents how to recreate them.
+docker/nginx/certs/
