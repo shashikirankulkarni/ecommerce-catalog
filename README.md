@@ -39,8 +39,8 @@ credentials, before and after, measured rather than asserted. The uncomfortable 
 ## Quick start
 
 ```bash
-git clone https://github.com/shashikirankulkarni/ecommerce-catalog.git
-cd ecommerce-catalog
+git clone https://github.com/shashikirankulkarni/ecommerce-catalog-service.git
+cd ecommerce-catalog-service
 
 cp .env.example .env                            # fill in any values you like
 cp docker/postgres/.env.example docker/postgres/.env
@@ -113,7 +113,7 @@ The self-hosted runners need registration tokens:
 
 ```bash
 export RUNNER_TOKEN=$(gh api -X POST \
-  repos/shashikirankulkarni/ecommerce-catalog/actions/runners/registration-token --jq .token)
+  repos/shashikirankulkarni/ecommerce-catalog-service/actions/runners/registration-token --jq .token)
 export RUNNER_TOKEN_FRONTEND=$(gh api -X POST \
   repos/shashikirankulkarni/ecommerce-catalog-frontend/actions/runners/registration-token --jq .token)
 ```

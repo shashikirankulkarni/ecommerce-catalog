@@ -1,3 +1,8 @@
+# Project name pinned explicitly. Compose otherwise derives it from the
+# directory name, so renaming the folder would create a fresh set of
+# volumes and silently orphan the databases.
+name: ecommerce-catalog
+
 # Local container estate for the catalog service.
 #
 # Nothing starts unless a profile is named:
@@ -43,7 +48,7 @@ services:
   #
   # RUNNER_TOKEN is a short-lived registration token, minted on demand:
   #   export RUNNER_TOKEN=$(gh api -X POST \
-  #     repos/shashikirankulkarni/ecommerce-catalog/actions/runners/registration-token \
+  #     repos/shashikirankulkarni/ecommerce-catalog-service/actions/runners/registration-token \
   #     --jq .token)
   runner:
     build:
@@ -52,7 +57,7 @@ services:
     container_name: catalog-runner
     profiles: [runner, dev, all]
     environment:
-      GH_REPO_URL: https://github.com/shashikirankulkarni/ecommerce-catalog
+      GH_REPO_URL: https://github.com/shashikirankulkarni/ecommerce-catalog-service
       RUNNER_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN - see comment above}
       RUNNER_NAME: catalog-runner
       RUNNER_LABELS: self-hosted,linux,arm64,catalog
