@@ -1,0 +1,1223 @@
+<title>Catalog Security Findings</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  :root {
+    --paper:      #F6F7F9;
+    --surface:    #FFFFFF;
+    --surface-2:  #EDEFF3;
+    --ink:        #14161C;
+    --ink-2:      #3D4351;
+    --muted:      #6B7280;
+    --rule:       #D9DDE4;
+    --rule-soft:  #E7EAEF;
+    --accent:     #1F3A5F;
+    --accent-2:   #33608F;
+    --crit:       #B3261E;
+    --high:       #A85400;
+    --med:        #7A6A1F;
+    --ok:         #2F6B52;
+    --crit-bg:    #F7E4E2;
+    --high-bg:    #F8EADB;
+    --med-bg:     #F2EFDC;
+    --ok-bg:      #E2EFE8;
+    --warn-panel: #FBF0DD;
+    --warn-edge:  #C99A3E;
+
+    --f-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --f-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #101318;
+      --surface:    #171B22;
+      --surface-2:  #1E232C;
+      --ink:        #E7EAEF;
+      --ink-2:      #BCC3CE;
+      --muted:      #8B93A1;
+      --rule:       #2C333E;
+      --rule-soft:  #232932;
+      --accent:     #9CBEE4;
+      --accent-2:   #7FA6D9;
+      --crit:       #F08B82;
+      --high:       #E0A65C;
+      --med:        #CFC07A;
+      --ok:         #7FC3A3;
+      --crit-bg:    #33201E;
+      --high-bg:    #322516;
+      --med-bg:     #2C2A1A;
+      --ok-bg:      #1B2E26;
+      --warn-panel: #2A2113;
+      --warn-edge:  #8A6B2C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #101318;
+    --surface:    #171B22;
+    --surface-2:  #1E232C;
+    --ink:        #E7EAEF;
+    --ink-2:      #BCC3CE;
+    --muted:      #8B93A1;
+    --rule:       #2C333E;
+    --rule-soft:  #232932;
+    --accent:     #9CBEE4;
+    --accent-2:   #7FA6D9;
+    --crit:       #F08B82;
+    --high:       #E0A65C;
+    --med:        #CFC07A;
+    --ok:         #7FC3A3;
+    --crit-bg:    #33201E;
+    --high-bg:    #322516;
+    --med-bg:     #2C2A1A;
+    --ok-bg:      #1B2E26;
+    --warn-panel: #2A2113;
+    --warn-edge:  #8A6B2C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 28px 96px;
+  }
+
+  .prose { max-width: 68ch; }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 56px 0 28px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+  }
+
+  h1 {
+    font-family: var(--f-sans);
+    font-weight: 700;
+    font-size: clamp(34px, 5.4vw, 52px);
+    line-height: 1.06;
+    letter-spacing: -0.022em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-family: var(--f-serif);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 18px 28px;
+    padding-top: 8px;
+  }
+
+  .meta-item { display: flex; flex-direction: column; gap: 3px; }
+
+  .meta-label {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .meta-value {
+    font-family: var(--f-mono);
+    font-size: 13.5px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- warning ---------- */
+
+  .warning {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: var(--warn-panel);
+    border: 1px solid var(--warn-edge);
+    border-left-width: 4px;
+    padding: 16px 20px;
+    margin: 28px 0 0;
+  }
+
+  .warning p { margin: 0; font-size: 14.5px; color: var(--ink-2); max-width: 78ch; }
+  .warning strong { color: var(--ink); }
+
+  .warning-mark {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--warn-edge);
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+
+  /* ---------- scoreboard ---------- */
+
+  .scoreboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 40px 0 8px;
+  }
+
+  .score {
+    background: var(--surface);
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .score-num {
+    font-family: var(--f-mono);
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+
+  .score-num.crit { color: var(--crit); }
+  .score-num.high { color: var(--high); }
+  .score-num.plain { color: var(--ink); }
+
+  .score-label {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { padding-top: 52px; }
+
+  h2 {
+    font-family: var(--f-sans);
+    font-size: 25px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+
+  .h2-rule {
+    height: 3px;
+    width: 44px;
+    background: var(--accent-2);
+    margin-bottom: 18px;
+  }
+
+  h3 {
+    font-family: var(--f-sans);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    margin: 32px 0 10px;
+  }
+
+  p {
+    font-family: var(--f-serif);
+    font-size: 16.5px;
+    line-height: 1.68;
+    color: var(--ink-2);
+    margin: 0 0 15px;
+  }
+
+  p strong { color: var(--ink); font-weight: 500; }
+  p em { font-style: italic; }
+
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.875em;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 2px;
+    color: var(--ink);
+  }
+
+  /* ---------- tables ---------- */
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    margin: 22px 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    min-width: 620px;
+  }
+
+  thead th {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+  .nowrap { white-space: nowrap; }
+  .num { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+  .group-row td {
+    background: var(--surface-2);
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* ---------- pills ---------- */
+
+  .pill {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .pill-crit { background: var(--crit-bg); color: var(--crit); }
+  .pill-high { background: var(--high-bg); color: var(--high); }
+  .pill-med  { background: var(--med-bg);  color: var(--med); }
+  .pill-kev  { background: var(--crit); color: var(--surface); }
+  .pill-ok   { background: var(--ok-bg); color: var(--ok); }
+
+  .caught { color: var(--ok); font-weight: 600; font-family: var(--f-mono); font-size: 12px; }
+  .missed { color: var(--crit); font-weight: 600; font-family: var(--f-mono); font-size: 12px; }
+
+  /* ---------- dual bar chart ---------- */
+
+  .chart {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 24px 22px 20px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+
+  .chart-head {
+    display: grid;
+    grid-template-columns: 200px 1fr 1fr;
+    gap: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+    min-width: 620px;
+  }
+
+  .chart-head span {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 1fr;
+    gap: 20px;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    min-width: 620px;
+  }
+
+  .bar-row:last-child { border-bottom: none; }
+
+  .bar-label {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bar-label small {
+    color: var(--muted);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+
+  .bar-track {
+    position: relative;
+    height: 18px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+  }
+
+  .bar-fill { height: 100%; }
+  .bar-fill.crit { background: var(--crit); }
+  .bar-fill.high { background: var(--high); }
+  .bar-fill.med  { background: var(--med); }
+
+  .bar-val {
+    position: absolute;
+    right: 6px;
+    font-family: var(--f-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  .chart-note {
+    font-family: var(--f-sans);
+    font-size: 12.5px;
+    color: var(--muted);
+    padding-top: 12px;
+    max-width: 70ch;
+  }
+
+  /* ---------- callout ---------- */
+
+  .callout {
+    border-left: 3px solid var(--accent-2);
+    background: var(--surface);
+    padding: 18px 22px;
+    margin: 24px 0;
+  }
+
+  .callout p:last-child { margin-bottom: 0; }
+
+  .callout-label {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  /* ---------- code block ---------- */
+
+  pre {
+    font-family: var(--f-mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 15px 18px;
+    overflow-x: auto;
+    margin: 18px 0;
+    color: var(--ink-2);
+  }
+
+  pre .hl { color: var(--crit); }
+  pre .dim { color: var(--muted); }
+
+  /* ---------- remediation list ---------- */
+
+  .steps {
+    list-style: none;
+    padding: 0;
+    margin: 22px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .steps li {
+    background: var(--surface);
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 16px;
+    align-items: baseline;
+  }
+
+  .step-n {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .step-body { font-family: var(--f-sans); font-size: 14.5px; color: var(--ink-2); }
+  .step-body b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 3px; font-size: 15px; }
+
+  /* ---------- footer ---------- */
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  @media (max-width: 700px) {
+    .chart-head, .bar-row { grid-template-columns: 130px 1fr 1fr; gap: 12px; }
+    .wrap { padding: 0 18px 72px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Phase 3 &middot; Artifact &amp; Source Scan</div>
+    <h1>Catalog Security Findings</h1>
+    <p class="standfirst">
+      A Spring Boot 4.1.1 product catalog, built deliberately insecure, then scanned with four
+      tools. Thirteen CVEs, two of them actively exploited in the wild &mdash; and thirteen planted
+      credentials, of which the secret scanners found three.
+    </p>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Artifact</span>
+        <span class="meta-value">catalog-0.0.1-SNAPSHOT.jar</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Size</span>
+        <span class="meta-value">61 MB &middot; 98 bundled jars</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Scanned</span>
+        <span class="meta-value">2026-09-05</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Platform</span>
+        <span class="meta-value">macOS 15.6 &middot; arm64 &middot; JDK 21</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="warning">
+    <span class="warning-mark">[ FAKE DATA ]</span>
+    <p>
+      <strong>Every credential in this report is fabricated.</strong> They were planted on purpose to
+      give the scanners something real to find. No live system, account, or key is exposed by anything
+      shown here. The values are reproduced in full because <em>which ones the scanners miss</em> is
+      the point of the exercise.
+    </p>
+  </div>
+
+  <div class="scoreboard">
+    <div class="score">
+      <span class="score-num crit">13</span>
+      <span class="score-label">CVEs in<br>dependencies</span>
+    </div>
+    <div class="score">
+      <span class="score-num crit">6</span>
+      <span class="score-label">Rated<br>critical</span>
+    </div>
+    <div class="score">
+      <span class="score-num crit">2</span>
+      <span class="score-label">On CISA<br>KEV list</span>
+    </div>
+    <div class="score">
+      <span class="score-num high">3</span>
+      <span class="score-label">Inherited from<br>Spring Boot</span>
+    </div>
+    <div class="score">
+      <span class="score-num plain">13</span>
+      <span class="score-label">Credentials<br>planted</span>
+    </div>
+    <div class="score">
+      <span class="score-num crit">3</span>
+      <span class="score-label">Credentials<br>detected</span>
+    </div>
+    <div class="score">
+      <span class="score-num plain">100</span>
+      <span class="score-label">SBOM<br>components</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>What was scanned</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        Four tools, two targets. <strong>grype</strong> and <strong>syft</strong> read the packaged
+        JAR &mdash; the artifact that would actually be deployed. <strong>trivy</strong> and
+        <strong>gitleaks</strong> read the source tree. That split matters: a scanner pointed at
+        source sees what you wrote, while a scanner pointed at the artifact sees what you shipped,
+        and those are not the same thing.
+      </p>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Tool</th>
+            <th>Version</th>
+            <th>Target</th>
+            <th>Looks for</th>
+            <th class="num">Findings</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">syft</td><td class="mono">1.51.1</td><td>packaged JAR</td>
+            <td>software bill of materials</td><td class="num">100 components</td>
+          </tr>
+          <tr>
+            <td class="mono">grype</td><td class="mono">0.118.0</td><td>packaged JAR</td>
+            <td>known CVEs in dependencies</td><td class="num">13</td>
+          </tr>
+          <tr>
+            <td class="mono">trivy</td><td class="mono">0.74.0</td><td>source tree</td>
+            <td>CVEs, secrets, misconfiguration</td><td class="num">13 + 2 secrets</td>
+          </tr>
+          <tr>
+            <td class="mono">gitleaks</td><td class="mono">8.30.1</td><td>source tree</td>
+            <td>hardcoded secrets</td><td class="num">6</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>
+        OWASP <strong>dependency-check</strong> was not run. It requires an NVD API key; without one,
+        the first run downloads the entire National Vulnerability Database at throttled speed and
+        routinely times out. grype and trivy ship pre-built databases and have no such dependency.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Vulnerable dependencies</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        Ten of the thirteen came from three dependencies pinned to known-bad versions on purpose.
+        <strong>The other three arrived on their own</strong> &mdash; inside Spring Boot 4.1.1, in a
+        project generated the same day it was scanned. That is the honest baseline of any real build:
+        you inherit your framework's vulnerabilities from the first commit.
+      </p>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Package</th><th>Version</th><th>CVE</th><th>Severity</th>
+            <th class="num">CVSS</th><th class="num">EPSS</th><th>Fixed in</th><th>Issue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group-row"><td colspan="8">Planted deliberately &mdash; 10 findings</td></tr>
+
+          <tr>
+            <td class="mono nowrap">log4j-core</td><td class="mono">2.14.1</td>
+            <td class="mono nowrap">CVE-2021-44228</td>
+            <td><span class="pill pill-crit">Critical</span> <span class="pill pill-kev">KEV</span></td>
+            <td class="num">10.0</td><td class="num">100.0%</td><td class="mono">2.15.0</td>
+            <td>Log4Shell &mdash; RCE via JNDI lookup in logged strings</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">log4j-core</td><td class="mono">2.14.1</td>
+            <td class="mono nowrap">CVE-2021-45046</td>
+            <td><span class="pill pill-crit">Critical</span> <span class="pill pill-kev">KEV</span></td>
+            <td class="num">9.0</td><td class="num">100.0%</td><td class="mono">2.16.0</td>
+            <td>Incomplete fix for Log4Shell in non-default configs</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">log4j-core</td><td class="mono">2.14.1</td>
+            <td class="mono nowrap">CVE-2021-45105</td>
+            <td><span class="pill pill-high">High</span></td>
+            <td class="num">5.9</td><td class="num">100.0%</td><td class="mono">2.17.0</td>
+            <td>Denial of service via self-referential lookups</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">commons-text</td><td class="mono">1.9</td>
+            <td class="mono nowrap">CVE-2022-42889</td>
+            <td><span class="pill pill-crit">Critical</span></td>
+            <td class="num">9.8</td><td class="num">99.9%</td><td class="mono">1.10.0</td>
+            <td>Text4Shell &mdash; RCE via variable interpolation</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">log4j-core</td><td class="mono">2.14.1</td>
+            <td class="mono nowrap">CVE-2021-44832</td>
+            <td><span class="pill pill-med">Medium</span></td>
+            <td class="num">6.6</td><td class="num">97.9%</td><td class="mono">2.17.1</td>
+            <td>RCE via JDBC appender with attacker-controlled LDAP</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">commons-collections</td><td class="mono">3.2.1</td>
+            <td class="mono nowrap">CVE-2015-7501</td>
+            <td><span class="pill pill-crit">Critical</span></td>
+            <td class="num">9.8</td><td class="num">85.6%</td><td class="mono">3.2.2</td>
+            <td>Deserialization RCE &mdash; the original gadget chain</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">commons-collections</td><td class="mono">3.2.1</td>
+            <td class="mono nowrap">CVE-2015-6420</td>
+            <td><span class="pill pill-high">High</span></td>
+            <td class="num">9.8</td><td class="num">17.9%</td><td class="mono">3.2.2</td>
+            <td>Deserialization of untrusted data</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">log4j-core</td><td class="mono">2.14.1</td>
+            <td class="mono nowrap">CVE-2026-34480</td>
+            <td><span class="pill pill-med">Medium</span></td>
+            <td class="num">7.5</td><td class="num">1.0%</td><td class="mono">2.25.4</td>
+            <td>XmlLayout emits invalid XML for forbidden characters</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">log4j-core</td><td class="mono">2.14.1</td>
+            <td class="mono nowrap">CVE-2025-68161</td>
+            <td><span class="pill pill-med">Medium</span></td>
+            <td class="num">4.8</td><td class="num">0.8%</td><td class="mono">2.25.3</td>
+            <td>Socket appender skips TLS hostname verification</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">log4j-core</td><td class="mono">2.14.1</td>
+            <td class="mono nowrap">CVE-2026-34477</td>
+            <td><span class="pill pill-med">Medium</span></td>
+            <td class="num">5.9</td><td class="num">0.4%</td><td class="mono">2.25.4</td>
+            <td>Incomplete fix for the hostname verification issue</td>
+          </tr>
+
+          <tr class="group-row"><td colspan="8">Inherited from Spring Boot 4.1.1 &mdash; 3 findings</td></tr>
+
+          <tr>
+            <td class="mono nowrap">tomcat-embed-core</td><td class="mono">11.0.24</td>
+            <td class="mono nowrap">CVE-2026-65905</td>
+            <td><span class="pill pill-crit">Critical</span></td>
+            <td class="num">9.8</td><td class="num">0.8%</td><td class="mono">11.0.25</td>
+            <td>DIGEST authenticator capture-replay bypass</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">tomcat-embed-core</td><td class="mono">11.0.24</td>
+            <td class="mono nowrap">CVE-2026-65182</td>
+            <td><span class="pill pill-crit">Critical</span></td>
+            <td class="num">9.1</td><td class="num">0.6%</td><td class="mono">11.0.25</td>
+            <td>Security constraint bypass via improper access control</td>
+          </tr>
+          <tr>
+            <td class="mono nowrap">tomcat-embed-core</td><td class="mono">11.0.24</td>
+            <td class="mono nowrap">CVE-2026-68525</td>
+            <td><span class="pill pill-crit">Critical</span></td>
+            <td class="num">&mdash;</td><td class="num">0.6%</td><td class="mono">11.0.25</td>
+            <td>FORM authentication constraint bypass on POST vs GET</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Severity is not urgency</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        Six findings are labelled Critical. Treating them as equally urgent would be a mistake, and
+        the data says so plainly. <strong>CVSS</strong> scores how bad exploitation would be;
+        <strong>EPSS</strong> estimates the probability that exploitation is actually attempted in the
+        next 30 days. They disagree constantly.
+      </p>
+    </div>
+
+    <div class="chart">
+      <div class="chart-head">
+        <span>CVE</span>
+        <span>CVSS severity &mdash; how bad, 0&ndash;10</span>
+        <span>EPSS &mdash; likelihood of exploitation</span>
+      </div>
+
+      <div class="bar-row">
+        <span class="bar-label">CVE-2021-44228 <small>log4j-core &middot; KEV</small></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:100%"></span><span class="bar-val">10.0</span></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:100%"></span><span class="bar-val">100.0%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2026-65905 <small>tomcat-embed-core</small></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:98%"></span><span class="bar-val">9.8</span></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:0.8%"></span><span class="bar-val">0.8%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2022-42889 <small>commons-text</small></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:98%"></span><span class="bar-val">9.8</span></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:99.9%"></span><span class="bar-val">99.9%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2015-7501 <small>commons-collections</small></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:98%"></span><span class="bar-val">9.8</span></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:85.6%"></span><span class="bar-val">85.6%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2015-6420 <small>commons-collections</small></span>
+        <span class="bar-track"><span class="bar-fill high" style="width:98%"></span><span class="bar-val">9.8</span></span>
+        <span class="bar-track"><span class="bar-fill high" style="width:17.9%"></span><span class="bar-val">17.9%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2026-65182 <small>tomcat-embed-core</small></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:91%"></span><span class="bar-val">9.1</span></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:0.6%"></span><span class="bar-val">0.6%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2021-45046 <small>log4j-core &middot; KEV</small></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:90%"></span><span class="bar-val">9.0</span></span>
+        <span class="bar-track"><span class="bar-fill crit" style="width:100%"></span><span class="bar-val">100.0%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2026-34480 <small>log4j-core</small></span>
+        <span class="bar-track"><span class="bar-fill med" style="width:75%"></span><span class="bar-val">7.5</span></span>
+        <span class="bar-track"><span class="bar-fill med" style="width:1%"></span><span class="bar-val">1.0%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2021-44832 <small>log4j-core</small></span>
+        <span class="bar-track"><span class="bar-fill med" style="width:66%"></span><span class="bar-val">6.6</span></span>
+        <span class="bar-track"><span class="bar-fill med" style="width:97.9%"></span><span class="bar-val">97.9%</span></span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">CVE-2021-45105 <small>log4j-core</small></span>
+        <span class="bar-track"><span class="bar-fill high" style="width:59%"></span><span class="bar-val">5.9</span></span>
+        <span class="bar-track"><span class="bar-fill high" style="width:100%"></span><span class="bar-val">100.0%</span></span>
+      </div>
+
+      <p class="chart-note">
+        Read the rows where the two bars disagree. CVE-2026-65905 scores 9.8 and is almost never
+        exploited. CVE-2021-44832 scores 6.6 and is exploited constantly. Severity and urgency are
+        different questions.
+      </p>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">The comparison that matters</span>
+      <p>
+        <strong>CVE-2021-44228 (Log4Shell)</strong> and <strong>CVE-2026-65905 (Tomcat)</strong> are
+        both Critical, 9.8&ndash;10.0. But Log4Shell sits at <strong>EPSS 100%</strong> and carries a
+        <strong>KEV</strong> tag &mdash; CISA has confirmed exploitation in the wild. The Tomcat flaw
+        sits at <strong>0.8%</strong> with no KEV tag. That is roughly a 125&times; difference in the
+        likelihood anyone tries it. A queue sorted by CVSS alone would work on them in the wrong order.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Present is not the same as exploitable</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        A scanner reports what is <em>on the classpath</em>. It does not know whether your code can
+        reach it. That distinction decides how much of this list is genuinely your problem.
+      </p>
+      <p>
+        <strong>The ten planted CVEs are unreachable.</strong> No application class imports
+        <code>commons-collections</code>, <code>commons-text</code>, or <code>log4j-core</code>. The
+        jars sit inside <code>BOOT-INF/lib/</code> and are never loaded. Log4Shell needs attacker text
+        to reach a Log4j2 logger; this application logs through Logback. There is no path.
+      </p>
+      <p>
+        <strong>The three inherited CVEs are reachable.</strong> Every HTTP request to this service
+        passes through <code>tomcat-embed-core</code>. They score lower on likelihood but sit directly
+        in the request path.
+      </p>
+      <p>
+        So the ranking flips depending on the question. By exploit likelihood, Log4Shell dominates. By
+        reachability in <em>this</em> application, the Tomcat findings are the only ones an attacker
+        could touch. Both readings are correct; a triage process needs both, and neither is what the
+        scanner hands you.
+      </p>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">Practical consequence</span>
+      <p>
+        Unreachable does not mean ignorable. A future feature that adds a dependency pulling
+        <code>log4j-core</code> into the logging path converts a dormant finding into a live one with
+        no visible change to your own code. Unused vulnerable dependencies are removed because they
+        are unused &mdash; not because they are harmless.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the secret scanners missed</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        Thirteen credentials were planted across four files. Two dedicated secret scanners, run
+        together, found <strong>three</strong>. This is the finding with the most carry-over value:
+        a clean gitleaks run is not evidence of a clean repository.
+      </p>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Credential</th><th>Location</th><th>gitleaks</th><th>trivy</th><th>Why</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Stripe test key <code>sk_test_&hellip;</code></td>
+            <td class="mono nowrap">application.properties:46</td>
+            <td class="caught">FOUND</td><td class="caught">FOUND</td>
+            <td>Distinctive <code>sk_</code> prefix, fixed length</td>
+          </tr>
+          <tr>
+            <td>Stripe live key <code>sk_live_&hellip;</code></td>
+            <td class="mono nowrap">PaymentConfig.java:24</td>
+            <td class="caught">FOUND</td><td class="caught">FOUND</td>
+            <td>Same rule, matched in Java source too</td>
+          </tr>
+          <tr>
+            <td>AWS access key ID <code>AKIA&hellip;</code></td>
+            <td class="mono nowrap">application.properties:52</td>
+            <td class="caught">FOUND</td><td class="missed">missed</td>
+            <td>gitleaks has an AWS rule; trivy's ruleset does not match it here</td>
+          </tr>
+          <tr>
+            <td>AWS secret access key</td>
+            <td class="mono nowrap">application.properties:53</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>40 random characters with no prefix &mdash; nothing to match on</td>
+          </tr>
+          <tr>
+            <td>Database password</td>
+            <td class="mono nowrap">application.properties:23</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>Reads as English; below the entropy threshold</td>
+          </tr>
+          <tr>
+            <td>JWT signing secret</td>
+            <td class="mono nowrap">application.properties:45</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>No standard format for a JWT secret</td>
+          </tr>
+          <tr>
+            <td>Stripe webhook secret <code>whsec_&hellip;</code></td>
+            <td class="mono nowrap">application.properties:47</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>Prefix exists but is not in either default ruleset</td>
+          </tr>
+          <tr>
+            <td>Webhook signing secret</td>
+            <td class="mono nowrap">PaymentConfig.java:26</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>Same gap, in compiled-in form</td>
+          </tr>
+          <tr>
+            <td>Merchant ID <code>acct_&hellip;</code></td>
+            <td class="mono nowrap">PaymentConfig.java:28</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>Identifier, not obviously a credential</td>
+          </tr>
+          <tr>
+            <td>Postgres superuser password</td>
+            <td class="mono nowrap">docker-compose.yml:19</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>Plain assignment in YAML, low entropy</td>
+          </tr>
+          <tr>
+            <td>3 &times; per-environment DB passwords</td>
+            <td class="mono nowrap">initdb/00-create-databases.sql</td>
+            <td class="missed">missed</td><td class="missed">missed</td>
+            <td>SQL <code>CREATE USER &hellip; PASSWORD</code> is not a scanned pattern</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The allowlist trap</h3>
+    <div class="prose">
+      <p>
+        The AWS key was originally set to <code>AKIAIOSFODNN7EXAMPLE</code> &mdash; Amazon's own
+        published documentation example, chosen precisely because it matches the AWS pattern exactly.
+        gitleaks reported nothing. It <strong>allowlists that exact string by name</strong>, because it
+        appears in every AWS tutorial and would otherwise generate endless false positives.
+      </p>
+      <p>
+        Swapping it for a realistic fake produced an immediate hit:
+      </p>
+    </div>
+
+<pre><span class="dim">gitleaks dir .</span>
+
+aws.access.key  = AKIAIOSFODNN7EXAMPLE   <span class="dim">→ no finding (allowlisted)</span>
+aws.access.key2 = AKIA<redacted>   <span class="hl">→ aws-access-token</span></pre>
+
+    <div class="prose">
+      <p>
+        The lesson is not that the allowlist is wrong &mdash; it is correct and necessary. It is that
+        detection depends on <em>shape</em>. Anything with a distinctive prefix gets caught. A password,
+        a JWT secret, or the 40-character half of an AWS pair that actually grants access has no shape
+        to match, and passes straight through.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Secrets survive into the artifact</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        A JAR is a zip file. Every credential in the source is readable from the shipped artifact with
+        no source access, no decompiler, and no privileged position &mdash; only the file.
+      </p>
+    </div>
+
+<pre><span class="dim">$ unzip -p catalog-0.0.1-SNAPSHOT.jar BOOT-INF/classes/application.properties</span>
+
+spring.datasource.password=<span class="hl"><redacted></span>
+app.jwt.secret=<span class="hl"><redacted></span>
+app.payment.stripe-key=<span class="hl">sk_test_<redacted></span>
+app.aws.access-key=<span class="hl">AKIA<redacted></span>
+app.aws.secret-key=<span class="hl"><redacted></span></pre>
+
+    <h3>Deleting the field does not delete the secret</h3>
+    <div class="prose">
+      <p>
+        <code>PaymentConfig</code> holds its keys in <code>static final String</code> fields. In Java
+        those are <strong>compile-time constants</strong>, so the compiler inlines them into every
+        class that references them. <code>PaymentService.java</code> never writes the key &mdash; but
+        its bytecode contains it:
+      </p>
+    </div>
+
+<pre><span class="dim">$ javap -c -p com.shashi.catalog.payment.PaymentService</span>
+
+public java.lang.String buildAuthorizationHeader();
+  Code:
+     0: ldc  #9   <span class="dim">// String</span> <span class="hl">Bearer sk_live_<redacted></span>
+     2: areturn</pre>
+
+    <div class="prose">
+      <p>
+        There is no field lookup at runtime &mdash; the finished string sits in the constant pool.
+        Which means removing the field from <code>PaymentConfig.java</code> leaves the copies already
+        inlined elsewhere untouched until a full rebuild. On an incremental or cache-backed CI build,
+        the "removed" secret ships anyway. That is a documented way credentials outlive the commit
+        that deleted them.
+      </p>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">Also worth knowing</span>
+      <p>
+        On macOS, <code>strings</code> refuses to read <code>.class</code> files: Java's
+        <code>0xCAFEBABE</code> magic number is also the Mach-O universal binary magic, so BSD
+        <code>strings</code> misparses the header and aborts. GNU <code>strings</code> on Linux reads
+        it fine. A verification step that passes on the CI runner can fail on a developer's Mac for
+        reasons that have nothing to do with the code. Portable alternative:
+        <code>tr -c '[:print:]' '\n' &lt; File.class | grep sk_</code>
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The reports are themselves sensitive</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        Trivy, scanning the working tree, flagged eight secrets in a file that had not existed an hour
+        earlier:
+      </p>
+    </div>
+
+<pre>reports/gitleaks.json   secrets=8   <span class="hl">stripe-secret-token</span></pre>
+
+    <div class="prose">
+      <p>
+        The scanner output quotes the secrets it found, in plaintext, along with their exact file and
+        line. Obvious once stated, and routinely missed in practice &mdash; which is how scan reports
+        end up committed to the repository, attached to tickets, or published as public CI artifacts.
+      </p>
+      <p>
+        <code>reports/</code> must be in <code>.gitignore</code> before the repository is initialised.
+        A scan report is as sensitive as the secrets it describes.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Remediation</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        Ordered deliberately. <strong>Rotation comes first</strong> &mdash; it is the only step that
+        actually revokes access. Removing a secret from code while the credential stays valid changes
+        nothing for an attacker who already copied it.
+      </p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <span class="step-n">01</span>
+        <span class="step-body">
+          <b>Rotate every exposed credential at its source</b>
+          Revoke the old key at the provider. Skipping this and going straight to code cleanup is the
+          most common real-world failure &mdash; the repository looks clean while the credential still works.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">02</span>
+        <span class="step-body">
+          <b>Gitignore <code>reports/</code> before <code>git init</code></b>
+          The scan output contains the secrets verbatim.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">03</span>
+        <span class="step-body">
+          <b>Move properties to environment variables, with no defaults</b>
+          <code>${DB_PASSWORD}</code>, never <code>${DB_PASSWORD:changeme}</code>. A fallback lets the
+          application boot on the wrong credential and fail somewhere far from the cause.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">04</span>
+        <span class="step-body">
+          <b>Replace the <code>static final</code> constants with injected configuration</b>
+          Constructor-injected <code>@ConfigurationProperties</code>. This is what stops the value being
+          compiled into the bytecode.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">05</span>
+        <span class="step-body">
+          <b>Rebuild fully, then re-verify the artifact</b>
+          <code>mvn clean package</code>, then grep the JAR again. An incremental build can retain
+          inlined copies of a constant you deleted.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">06</span>
+        <span class="step-body">
+          <b>Upgrade the vulnerable dependencies</b>
+          Remove <code>commons-collections</code>, <code>commons-text</code> and <code>log4j-core</code>
+          entirely &mdash; nothing uses them. Bump <code>tomcat-embed-core</code> to 11.0.25 to clear the
+          three inherited Criticals.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">07</span>
+        <span class="step-body">
+          <b>Close the actuator exposure</b>
+          <code>management.endpoints.web.exposure.include=health,info</code> and remove
+          <code>show-values=ALWAYS</code>. Exposed, it returns every credential over unauthenticated HTTP.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">08</span>
+        <span class="step-body">
+          <b>Purge the secrets from git history</b>
+          Deleting a file does not remove it from earlier commits. <code>git filter-repo</code>, then
+          confirm with <code>gitleaks detect</code>, which scans history rather than the working tree.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">09</span>
+        <span class="step-body">
+          <b>Add a gitleaks pre-commit hook</b>
+          Prevention, so this cannot recur silently.
+        </span>
+      </li>
+      <li>
+        <span class="step-n">10</span>
+        <span class="step-body">
+          <b>Re-run every scanner and diff against this baseline</b>
+          The proof is the difference between two reports, not the absence of findings in one.
+        </span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Reproducing this</h2>
+    <div class="h2-rule"></div>
+
+<pre><span class="dim"># build the artifact</span>
+./mvnw clean package
+
+<span class="dim"># inventory and CVEs, against the shipped JAR</span>
+syft  target/catalog-0.0.1-SNAPSHOT.jar -o spdx-json &gt; reports/sbom.spdx.json
+grype target/catalog-0.0.1-SNAPSHOT.jar -o table     &gt; reports/grype.txt
+
+<span class="dim"># source tree: CVEs, secrets, misconfiguration</span>
+trivy fs --scanners vuln,secret,misconfig --skip-dirs target .
+
+<span class="dim"># secrets. use `dir` before git init; `detect` scans history after</span>
+gitleaks dir . --report-path reports/gitleaks.json --report-format json
+
+<span class="dim"># prove the secret shipped inside the artifact</span>
+unzip -p target/catalog-*.jar BOOT-INF/classes/application.properties | grep -i password</pre>
+  </section>
+
+  <footer>
+    catalog-0.0.1-SNAPSHOT &middot; Spring Boot 4.1.1 &middot; Java 21<br>
+    grype 0.118.0 &middot; syft 1.51.1 &middot; trivy 0.74.0 &middot; gitleaks 8.30.1<br>
+    All credentials shown are fabricated. Phase 3 of 10.
+  </footer>
+
+</div>

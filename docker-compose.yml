@@ -1,0 +1,44 @@
+# Local container estate for the catalog service.
+#
+# Nothing starts unless a profile is named:
+#   docker compose --profile db  up -d     # just Postgres
+#   docker compose --profile dev up -d     # + runner + srv-dev
+#   docker compose --profile all up -d     # everything
+#
+# Credentials come from docker/postgres/.env, which is gitignored.
+# Copy docker/postgres/.env.example to .env and fill it in before the
+# first `up`. The initdb script fails loudly if a value is missing.
+
+services:
+  postgres-nonprod:
+    image: postgres:17
+    container_name: catalog-postgres-nonprod
+    profiles: [db, dev, all]
+    restart: unless-stopped
+    # env_file puts these variables inside the container, where both the
+    # Postgres entrypoint and the initdb script can read them. Nothing is
+    # interpolated into this YAML, so no value appears in the repository.
+    env_file:
+      - ./docker/postgres/.env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata-nonprod:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      - catalog-net-nonprod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata-nonprod:
+
+networks:
+  catalog-net-nonprod:
+    name: catalog-net-nonprod
