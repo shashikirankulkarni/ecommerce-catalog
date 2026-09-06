@@ -36,6 +36,47 @@ services:
       timeout: 3s
       retries: 10
 
+  # GitHub Actions self-hosted runner.
+  #
+  # Deliberately no restart policy: this should not sit idle in the
+  # background consuming memory. Start it when you want the pipeline.
+  #
+  # RUNNER_TOKEN is a short-lived registration token, minted on demand:
+  #   export RUNNER_TOKEN=$(gh api -X POST \
+  #     repos/shashikirankulkarni/ecommerce-catalog/actions/runners/registration-token \
+  #     --jq .token)
+  runner:
+    build:
+      context: ./docker/runner
+    image: catalog-runner:local
+    container_name: catalog-runner
+    profiles: [runner, dev, all]
+    environment:
+      GH_REPO_URL: https://github.com/shashikirankulkarni/ecommerce-catalog
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN - see comment above}
+      RUNNER_NAME: catalog-runner
+      RUNNER_LABELS: self-hosted,linux,arm64,catalog
+    networks:
+      - catalog-net-nonprod
+
+  # Application server for the dev environment.
+  #
+  # A long-lived box, built once. Deployments copy a JAR into /opt/catalog
+  # over SSH and restart it through supervisorctl - the container itself is
+  # never rebuilt to ship a new version.
+  srv-dev:
+    build:
+      context: ./docker/server
+    image: catalog-server:local
+    container_name: srv-dev
+    profiles: [dev, all]
+    restart: unless-stopped
+    ports:
+      - "8081:8080"   # the app, once deployed
+      - "2222:22"     # ssh, for you from the Mac
+    networks:
+      - catalog-net-nonprod
+
 volumes:
   pgdata-nonprod:
 
