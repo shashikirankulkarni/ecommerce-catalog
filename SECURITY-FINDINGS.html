@@ -521,6 +521,70 @@
     .wrap { padding: 0 18px 72px; }
   }
 
+  .delta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 24px 0 8px;
+  }
+
+  .delta-cell {
+    background: var(--surface);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .delta-nums {
+    font-family: var(--f-mono);
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .delta-from { color: var(--crit); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .delta-arrow { color: var(--muted); font-size: 15px; }
+  .delta-to { color: var(--ok); }
+
+  .delta-label {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  .status-strip {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    background: var(--ok-bg);
+    border: 1px solid var(--ok);
+    border-left-width: 4px;
+    padding: 14px 20px;
+    margin: 28px 0 0;
+  }
+
+  .status-strip p { margin: 0; font-size: 14.5px; color: var(--ink-2); font-family: var(--f-sans); }
+  .status-strip strong { color: var(--ink); }
+
+  .status-mark {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--ok);
+    white-space: nowrap;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
   }
@@ -529,12 +593,13 @@
 <div class="wrap">
 
   <header class="masthead">
-    <div class="eyebrow">Phase 3 &middot; Artifact &amp; Source Scan</div>
+    <div class="eyebrow">Phase 3 baseline &middot; Phase 5 remediation</div>
     <h1>Catalog Security Findings</h1>
     <p class="standfirst">
       A Spring Boot 4.1.1 product catalog, built deliberately insecure, then scanned with four
       tools. Thirteen CVEs, two of them actively exploited in the wild &mdash; and thirteen planted
-      credentials, of which the secret scanners found three.
+      credentials, of which the secret scanners found three. All of it is now fixed; the numbers
+      below are the baseline, and the closing section records what changed.
     </p>
     <div class="meta-grid">
       <div class="meta-item">
@@ -563,6 +628,16 @@
       give the scanners something real to find. No live system, account, or key is exposed by anything
       shown here. The values are reproduced in full because <em>which ones the scanners miss</em> is
       the point of the exercise.
+    </p>
+  </div>
+
+  <div class="status-strip">
+    <span class="status-mark">[ REMEDIATED ]</span>
+    <p>
+      <strong>Everything below has been fixed.</strong> grype 13 CVEs &rarr; 0 &middot; secrets in
+      tracked files 13 &rarr; 0 &middot; secrets in git history 9 &rarr; 0 &middot; Actuator
+      endpoints exposed 20 &rarr; 2. Measured with the same four tools &mdash; see
+      <em>After remediation</em> at the end.
     </p>
   </div>
 
@@ -1191,6 +1266,121 @@ public java.lang.String buildAuthorizationHeader();
         </span>
       </li>
     </ol>
+  </section>
+
+  <section>
+    <h2>After remediation</h2>
+    <div class="h2-rule"></div>
+    <div class="prose">
+      <p>
+        Same four tools, same artifact, after Phase 5. Every number was measured, not asserted.
+      </p>
+    </div>
+
+    <div class="delta">
+      <div class="delta-cell">
+        <span class="delta-nums"><span class="delta-from">13</span><span class="delta-arrow">&rarr;</span><span class="delta-to">0</span></span>
+        <span class="delta-label">CVEs<br>grype</span>
+      </div>
+      <div class="delta-cell">
+        <span class="delta-nums"><span class="delta-from">6</span><span class="delta-arrow">&rarr;</span><span class="delta-to">0</span></span>
+        <span class="delta-label">Rated<br>critical</span>
+      </div>
+      <div class="delta-cell">
+        <span class="delta-nums"><span class="delta-from">2</span><span class="delta-arrow">&rarr;</span><span class="delta-to">0</span></span>
+        <span class="delta-label">On CISA<br>KEV list</span>
+      </div>
+      <div class="delta-cell">
+        <span class="delta-nums"><span class="delta-from">13</span><span class="delta-arrow">&rarr;</span><span class="delta-to">0</span></span>
+        <span class="delta-label">Secrets in<br>tracked files</span>
+      </div>
+      <div class="delta-cell">
+        <span class="delta-nums"><span class="delta-from">9</span><span class="delta-arrow">&rarr;</span><span class="delta-to">0</span></span>
+        <span class="delta-label">Secrets in<br>git history</span>
+      </div>
+      <div class="delta-cell">
+        <span class="delta-nums"><span class="delta-from">20</span><span class="delta-arrow">&rarr;</span><span class="delta-to">2</span></span>
+        <span class="delta-label">Actuator<br>endpoints</span>
+      </div>
+    </div>
+
+    <h3>Dependencies</h3>
+    <div class="prose">
+      <p>
+        <code>commons-collections</code>, <code>commons-text</code> and <code>log4j-core</code> were
+        removed outright &mdash; direct dependencies referenced by no application code.
+        <code>tomcat-embed-core</code> could not be removed; it arrives transitively through
+        <code>spring-boot-starter-webmvc</code>. It was bumped 11.0.24 &rarr; 11.0.25 by overriding
+        the <code>tomcat.version</code> property that Spring Boot's BOM manages. That is the
+        supported mechanism &mdash; an explicit <code>&lt;dependency&gt;</code> block also works, but
+        you then own that version permanently, including across Boot upgrades that would otherwise
+        move it for you.
+      </p>
+    </div>
+
+    <h3>The compiled constant</h3>
+    <div class="prose">
+      <p>
+        <code>PaymentConfig</code>'s <code>static final String</code> fields became
+        <code>PaymentProperties</code>, a <code>@Validated @ConfigurationProperties</code> record
+        injected by constructor. The bytecode is the proof:
+      </p>
+    </div>
+
+<pre><span class="dim">before</span>  0: ldc           #9   <span class="dim">// String</span> <span class="hl">Bearer sk_live_&lt;redacted&gt;</span>
+
+<span class="dim">after </span>  1: getfield      #7   <span class="dim">// Field properties:...PaymentProperties</span>
+        4: invokevirtual #13  <span class="dim">// Method ...stripeKey()</span></pre>
+
+    <div class="prose">
+      <p>
+        A compile-time constant is baked into the constant pool of every referencing class. A field
+        read resolves at runtime, so there is no literal left to find.
+      </p>
+    </div>
+
+    <h3>The four passwords no scanner found</h3>
+    <div class="prose">
+      <p>
+        <code>docker-compose.yml</code> now reads <code>docker/postgres/.env</code> through
+        <code>env_file</code>, and the initdb script was converted from <code>.sql</code> to
+        <code>.sh</code> &mdash; Postgres executes <code>.sql</code> files literally and cannot
+        expand a variable, which is why the passwords had to be written into it in the first place.
+      </p>
+      <p>
+        These four are worth singling out: <strong>both scanners missed all of them at baseline.</strong>
+        SQL <code>CREATE USER &hellip; PASSWORD</code> and plain YAML assignments match no rule in
+        either default ruleset. They were fixed only because the planted secrets were enumerated by
+        hand and checked off one by one. Nothing in the tooling would have raised them.
+      </p>
+    </div>
+
+    <h3>What is still reported, and why that is correct</h3>
+    <div class="prose">
+      <p>
+        <code>gitleaks dir .</code> still returns 30 findings. All 30 are in <code>.env</code>,
+        <code>docker/postgres/.env</code> and <code>reports/</code> &mdash; gitignored, never
+        committed, confirmed against <code>git ls-files</code>. Two behaviours worth knowing:
+        <strong>trivy does not respect <code>.gitignore</code></strong>, so it scans local-only
+        files; and trivy caught <code>aws-secret-access-key</code> in <code>.env</code> having
+        <em>missed</em> the same secret in <code>application.properties</code> at baseline. The
+        variable name <code>AWS_SECRET_KEY=</code> gave its rule the context that
+        <code>app.aws.secret-key=</code> did not.
+      </p>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">What this exercise did not prove</span>
+      <p>
+        The scanners never found 10 of the 13 planted credentials. Remediation was driven by an
+        inventory kept by hand, not by the reports. In a real codebase with no such inventory those
+        ten would still be there &mdash; and every scan would have come back clean.
+      </p>
+      <p>
+        <strong>A clean scan is evidence that the scanner found nothing. It is not evidence that
+        there is nothing to find.</strong>
+      </p>
+    </div>
   </section>
 
   <section>

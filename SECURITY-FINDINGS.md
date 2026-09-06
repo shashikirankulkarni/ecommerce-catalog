@@ -9,8 +9,11 @@
 > scanners had something real to find. No live system, account or key is exposed. The values are
 > reproduced in full because *which ones the scanners miss* is the point.
 
-This is the **baseline**. Phase 5 remediates it, re-runs the same tools, and the proof of
-remediation is the diff between that report and this one.
+This is the **baseline**, captured before remediation. Section 10 records the state after
+Phase 5, measured with the same four tools against the same artifact.
+
+> **Status: remediated.** grype 13 CVEs -> 0. Secrets in tracked files 13 -> 0. Secrets in git
+> history 9 -> 0. Actuator endpoints exposed 20 -> 2. Details in section 10.
 
 ---
 
@@ -275,3 +278,93 @@ gitleaks dir . --report-path reports/gitleaks.json --report-format json
 # prove the secret shipped inside the artifact
 unzip -p target/catalog-*.jar BOOT-INF/classes/application.properties | grep -i password
 ```
+
+
+---
+
+## 10. After remediation
+
+Same four tools, same artifact, after Phase 5. Every number below was measured, not asserted.
+
+| Measure | Baseline | After | |
+|---|---|---|---|
+| CVEs (grype, packaged JAR) | 13 | **0** | `No vulnerabilities found` |
+| Rated Critical | 6 | **0** | |
+| On the CISA KEV list | 2 | **0** | |
+| CVEs (trivy, source tree) | 13 | **0** | |
+| SBOM components | 100 | 97 | three dependencies removed |
+| Secrets in tracked files | 13 planted | **0** | |
+| Secrets in git history | 9 | **0** | |
+| Actuator endpoints exposed | 20 | **2** | health, info |
+| `/actuator/env` credential leak | plaintext | **404** | |
+
+### What was done, by finding
+
+**Dependencies.** `commons-collections`, `commons-text` and `log4j-core` were removed outright —
+direct dependencies referenced by no application code. `tomcat-embed-core` could not be removed;
+it arrives transitively through `spring-boot-starter-webmvc`. It was bumped from 11.0.24 to
+11.0.25 by overriding the `tomcat.version` property that Spring Boot's BOM manages. That is the
+supported mechanism: an explicit `<dependency>` block would also work, but you would then own the
+version permanently, including across Boot upgrades that would otherwise move it for you.
+
+**Properties.** Every credential became an environment variable placeholder with **no default**.
+Local values live in a gitignored `.env`, loaded through
+`spring.config.import=optional:file:./.env[.properties]`. The `optional:` prefix matters: on a
+server the file is absent and the variables come from the process environment instead, so the same
+artifact runs everywhere.
+
+**Compiled constants.** `PaymentConfig`'s `static final String` fields were replaced by
+`PaymentProperties`, a `@Validated @ConfigurationProperties` record injected by constructor. The
+bytecode change is the proof:
+
+```
+before:  0: ldc  #9   // String Bearer sk_live_<redacted>
+after :  1: getfield      #7   // Field properties:...PaymentProperties
+         4: invokevirtual #13  // Method ...stripeKey()
+```
+
+A compile-time constant is baked into the constant pool of every referencing class. A field read
+resolves at runtime, so there is no literal to find.
+
+**Container credentials.** `docker-compose.yml` reads `docker/postgres/.env` through `env_file`,
+so nothing is interpolated into the YAML. The initdb script was converted from `.sql` to `.sh`:
+Postgres executes `.sql` files literally and cannot expand a variable, so the passwords had to be
+written into the file. A shell script reads them from the environment and aborts with `:?` if one
+is missing.
+
+These four passwords are worth singling out — they were **missed by both scanners** at baseline.
+SQL `CREATE USER ... PASSWORD` and plain YAML assignments match no rule in either default ruleset.
+They were fixed only because the planted secrets were enumerated by hand and checked off. Nothing
+in the tooling would have flagged them.
+
+**Actuator.** `exposure.include` went from `*` to `health,info`, and both `show-values=ALWAYS`
+lines were removed. `show-details` is now `when-authorized` rather than `always`, so the deploy
+gate can still poll status without handing component detail to anonymous callers.
+`probes.enabled=true` keeps `/health/liveness` and `/health/readiness` for the deployment check.
+
+Verified: health, liveness, readiness, info, the API and Swagger UI all return 200; `env`,
+`configprops`, `beans`, `mappings` and `threaddump` all return 404.
+
+### What is still reported, and why it is correct
+
+`gitleaks dir .` still reports 30 findings. All 30 are in `.env`, `docker/postgres/.env` and
+`reports/` — files that are gitignored and have never been committed. `git ls-files` confirms none
+of them is tracked.
+
+Two behaviours worth knowing:
+
+- **trivy does not respect `.gitignore`.** It scans local-only files, which is why `.env` appears
+  in its output. That is useful on a developer machine and noisy in CI.
+- **trivy caught `aws-secret-access-key` in `.env`** — the same secret it *missed* in
+  `application.properties` at baseline. The variable name `AWS_SECRET_KEY=` gave its rule the
+  context that `app.aws.secret-key=` did not. Detection depends on surrounding text, not only on
+  the value.
+
+### What this exercise did not prove
+
+The scanners did not find 10 of the 13 planted credentials. Remediation was driven by an inventory
+kept by hand, not by the reports. Had this been a real codebase with no such inventory, those ten
+would still be in it — and every scan would have come back clean.
+
+**A clean scan is evidence that the scanner found nothing. It is not evidence that there is
+nothing to find.**
