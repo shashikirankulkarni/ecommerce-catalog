@@ -2,6 +2,8 @@ package com.shashi.catalog.service;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +15,8 @@ import com.shashi.catalog.web.dto.ProductResponse;
 @Service
 @Transactional(readOnly = true)
 public class ProductService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductRepository repository;
 
@@ -56,7 +60,13 @@ public class ProductService {
         }
         Product product = new Product();
         apply(request, product);
-        return ProductResponse.from(repository.save(product));
+        Product saved = repository.save(product);
+        // Identifiers only. The request body is never logged - it can carry
+        // customer data, and a log aggregator has none of the access
+        // controls the database has.
+        log.info("Created product id={} sku={} category={}",
+                saved.getId(), saved.getSku(), saved.getCategory());
+        return ProductResponse.from(saved);
     }
 
     @Transactional
@@ -68,7 +78,9 @@ public class ProductService {
             throw new DuplicateSkuException(request.sku());
         }
         apply(request, product);
-        return ProductResponse.from(repository.save(product));
+        Product saved = repository.save(product);
+        log.info("Updated product id={} sku={}", saved.getId(), saved.getSku());
+        return ProductResponse.from(saved);
     }
 
     /*
@@ -80,6 +92,7 @@ public class ProductService {
     public ProductResponse deactivate(Long id) {
         Product product = getOrThrow(id);
         product.setActive(false);
+        log.info("Deactivated product id={} sku={}", product.getId(), product.getSku());
         return ProductResponse.from(repository.save(product));
     }
 
@@ -87,6 +100,7 @@ public class ProductService {
     public ProductResponse activate(Long id) {
         Product product = getOrThrow(id);
         product.setActive(true);
+        log.info("Reactivated product id={} sku={}", product.getId(), product.getSku());
         return ProductResponse.from(repository.save(product));
     }
 

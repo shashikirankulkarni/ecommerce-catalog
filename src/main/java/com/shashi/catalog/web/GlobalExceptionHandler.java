@@ -4,6 +4,8 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.FieldError;
@@ -22,8 +24,14 @@ import com.shashi.catalog.service.ProductNotFoundException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(ProductNotFoundException.class)
     ProblemDetail handleNotFound(ProductNotFoundException ex) {
+        // WARN, not ERROR: a 404 is a client asking for something that is
+        // not there, not a fault in this service. Logging it as ERROR
+        // trains people to ignore ERROR.
+        log.warn("Product not found: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         problem.setTitle("Product not found");
         problem.setType(URI.create("https://catalog.shashi.com/errors/product-not-found"));
@@ -32,6 +40,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DuplicateSkuException.class)
     ProblemDetail handleDuplicateSku(DuplicateSkuException ex) {
+        log.warn("Duplicate sku rejected: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Duplicate sku");
         problem.setType(URI.create("https://catalog.shashi.com/errors/duplicate-sku"));
@@ -49,6 +58,10 @@ public class GlobalExceptionHandler {
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             errors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
+
+        // Field names and messages only - never the submitted values,
+        // which are user input and may contain anything.
+        log.warn("Validation failed on {}: {}", ex.getObjectName(), errors.keySet());
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "One or more fields are invalid");

@@ -199,7 +199,8 @@ jobs:
                   echo "rolled back to the previous JAR"
                 else
                   echo "no previous JAR to roll back to"
-                  sudo supervisorctl tail -2000 catalog stderr || true
+                  echo "the application logs to the container stdout - inspect with:"
+                  echo "  docker logs --tail 200 ${HOSTNAME}"
                 fi
               '
 
