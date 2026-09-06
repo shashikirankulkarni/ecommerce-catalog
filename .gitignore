@@ -43,3 +43,9 @@ reports/
 
 ### Logs ###
 *.log
+
+### SSH keys for the container estate ###
+# The private key must never be committed. The public key is safe and is
+# baked into the server image, so it is deliberately NOT ignored.
+docker/server/deploy_key
+docker/server/*.pem
