@@ -90,8 +90,12 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Certificates are generated per machine and gitignored. See
+      # docker/nginx/certs/README.md to recreate them.
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
     networks:
       - catalog-net-nonprod
     depends_on:
