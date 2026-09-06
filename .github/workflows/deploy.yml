@@ -1,0 +1,152 @@
+# Deployment.
+#
+# Triggered only by a push to a protected branch - which, given the
+# ruleset, can only happen by merging a pull request. A fork cannot
+# produce a push event on these branches, so no external code can ever
+# reach the self-hosted runner through this workflow.
+#
+# One file, three environments. `environment: ${{ github.ref_name }}`
+# resolves to dev, qa or prod from the branch name, which selects that
+# environment's secrets and variables and arms its protection rules -
+# including the required reviewer on prod. No `if:` branching needed.
+
+name: Deploy
+
+on:
+  push:
+    branches: [dev, qa, prod]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never cancel a deployment mid-flight - a half-copied JAR with a
+  # stopped service is worse than a queued deploy.
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy to ${{ github.ref_name }}
+    runs-on: [self-hosted, catalog]
+    environment: ${{ github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tests are NOT run here. They use Testcontainers, which needs a
+      # Docker daemon, and this runner deliberately has no access to the
+      # host's Docker socket - mounting it would let any job take over the
+      # host. The tests already ran on GitHub-hosted runners as the pull
+      # request gate; this step only produces the artifact.
+      - name: Build the JAR
+        run: ./mvnw -B clean package -DskipTests
+
+      - name: Render the environment file
+        # umask 077 BEFORE the file is created, so it is never briefly
+        # world-readable. Creating it and chmod-ing afterwards leaves a
+        # window where any user on the runner could read it.
+        run: |
+          umask 077
+          cat > catalog.env <<EOF
+          SPRING_PROFILES_ACTIVE=${{ vars.SPRING_PROFILE }}
+          SERVER_PORT=8080
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          STRIPE_KEY=${{ secrets.STRIPE_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_MERCHANT_ID=${{ secrets.STRIPE_MERCHANT_ID }}
+          AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}
+          EOF
+          echo "rendered $(wc -l < catalog.env) variables"
+
+      - name: Configure SSH
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pin the host key rather than using StrictHostKeyChecking=no,
+          # which accepts whatever answers and defeats the point.
+          ssh-keyscan -p ${{ vars.SSH_PORT }} -H ${{ vars.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Keep the current JAR for rollback
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ vars.SSH_PORT }} \
+              deploy@${{ vars.DEPLOY_HOST }} \
+              'if [ -f /opt/catalog/catalog.jar ]; then cp /opt/catalog/catalog.jar /opt/catalog/catalog.jar.prev; echo "previous version saved"; else echo "no previous version - first deploy"; fi'
+
+      - name: Copy artifact and configuration
+        # scp, not `ssh host "echo $SECRET > file"` - the latter puts the
+        # secret in the remote process list, visible to anyone running ps.
+        run: |
+          scp -i ~/.ssh/deploy_key -P ${{ vars.SSH_PORT }} \
+              target/catalog-0.0.1-SNAPSHOT.jar \
+              deploy@${{ vars.DEPLOY_HOST }}:/opt/catalog/catalog.jar.new
+          scp -i ~/.ssh/deploy_key -P ${{ vars.SSH_PORT }} \
+              catalog.env \
+              deploy@${{ vars.DEPLOY_HOST }}:/opt/catalog/.env
+
+      - name: Restart the service
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ vars.SSH_PORT }} \
+              deploy@${{ vars.DEPLOY_HOST }} '
+                set -e
+                chmod 600 /opt/catalog/.env
+                mv /opt/catalog/catalog.jar.new /opt/catalog/catalog.jar
+                sudo supervisorctl stop catalog || true
+                sudo supervisorctl start catalog
+                sudo supervisorctl status catalog || true
+              '
+
+      - name: Wait for the service to report healthy
+        id: health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "http://${{ vars.DEPLOY_HOST }}:8080/actuator/health" | grep -q '"status":"UP"'; then
+              echo "healthy after ${i} attempts"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "did not become healthy within 60s"
+          exit 1
+
+      - name: Roll back on failure
+        if: failure() && steps.health.outcome == 'failure'
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ vars.SSH_PORT }} \
+              deploy@${{ vars.DEPLOY_HOST }} '
+                if [ -f /opt/catalog/catalog.jar.prev ]; then
+                  mv /opt/catalog/catalog.jar.prev /opt/catalog/catalog.jar
+                  sudo supervisorctl restart catalog
+                  echo "rolled back to the previous JAR"
+                else
+                  echo "no previous JAR to roll back to"
+                  sudo supervisorctl tail -2000 catalog stderr || true
+                fi
+              '
+
+      - name: Remove the rendered secrets from the workspace
+        # This runner is persistent: its workspace survives into the next
+        # job. Without this, the next workflow to run here inherits a file
+        # containing production credentials.
+        if: always()
+        run: |
+          shred -u catalog.env 2>/dev/null || rm -f catalog.env
+          rm -f ~/.ssh/deploy_key
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Deployed to ${{ github.ref_name }}"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| Host | \`${{ vars.DEPLOY_HOST }}\` |"
+            echo "| Profile | \`${{ vars.SPRING_PROFILE }}\` |"
+            echo "| Reachable from your Mac | http://localhost:${{ vars.APP_PORT }}/actuator/health |"
+          } >> "$GITHUB_STEP_SUMMARY"
