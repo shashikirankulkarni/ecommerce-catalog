@@ -8,16 +8,15 @@ import jakarta.validation.constraints.NotBlank;
 /*
  * Payment configuration, bound from app.payment.* at startup.
  *
- * This replaces the static final String constants that used to live in
- * PaymentConfig. Three things change as a result:
+ * @NotBlank alone is not enough. When Spring cannot resolve a placeholder
+ * such as ${STRIPE_KEY} it does not fail - it leaves the literal text
+ * "${STRIPE_KEY}" as the value. That is a perfectly non-blank string, so
+ * validation passes and the application starts happily holding nonsense,
+ * failing much later at the first call that uses it.
  *
- *   1. The values are no longer compile-time constants, so the compiler
- *      cannot inline them into the bytecode of referencing classes.
- *   2. They come from the environment, so the same artifact runs in
- *      local, dev, qa and prod with different credentials.
- *   3. @Validated + @NotBlank makes a missing value fail at startup with
- *      the property name in the message, instead of surfacing later as
- *      some unrelated error.
+ * The compact constructor closes that gap: it runs during binding, so an
+ * unresolved placeholder aborts startup naming the property that is
+ * missing.
  */
 @Validated
 @ConfigurationProperties(prefix = "app.payment")
@@ -35,4 +34,11 @@ public record PaymentProperties(
         @NotBlank(message = "app.payment.base-url must be set")
         String baseUrl
 ) {
+
+    public PaymentProperties {
+        ConfigGuard.requireResolved("app.payment.stripe-key", "STRIPE_KEY", stripeKey);
+        ConfigGuard.requireResolved("app.payment.webhook-secret", "STRIPE_WEBHOOK_SECRET", webhookSecret);
+        ConfigGuard.requireResolved("app.payment.merchant-id", "STRIPE_MERCHANT_ID", merchantId);
+        ConfigGuard.requireResolved("app.payment.base-url", "STRIPE_BASE_URL", baseUrl);
+    }
 }
