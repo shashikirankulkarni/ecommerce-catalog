@@ -1,14 +1,23 @@
 # Deployment.
 #
-# Triggered only by a push to a protected branch - which, given the
-# ruleset, can only happen by merging a pull request. A fork cannot
-# produce a push event on these branches, so no external code can ever
-# reach the self-hosted runner through this workflow.
+# Triggered only by a push to a protected branch, which given the ruleset
+# can only happen by merging a pull request. A fork cannot produce a push
+# event on these branches, so no external code reaches the self-hosted
+# runner through this workflow.
 #
-# One file, three environments. `environment: ${{ github.ref_name }}`
-# resolves to dev, qa or prod from the branch name, which selects that
-# environment's secrets and variables and arms its protection rules -
-# including the required reviewer on prod. No `if:` branching needed.
+# Build once, deploy the same bytes.
+#
+# The JAR is built and tested ONCE, on a GitHub-hosted runner, and the
+# self-hosted runner then ships that exact file. Previously each side
+# compiled its own copy, which meant the artifact that was tested and the
+# artifact that reached the server were different files, built on
+# different machines, on different CPU architectures. Every test result
+# described something that no longer existed.
+#
+# Java bytecode is architecture independent, so an x86_64 build runs
+# unchanged on the arm64 server. The SHA-256 is compared across the two
+# jobs, so "is the server running what we tested?" is a checked fact
+# rather than an assumption.
 
 name: Deploy
 
@@ -20,32 +29,89 @@ permissions:
   contents: read
 
 concurrency:
-  # Never cancel a deployment mid-flight - a half-copied JAR with a
+  # Never cancel a deployment mid-flight: a half-copied JAR with a
   # stopped service is worse than a queued deploy.
   group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Build and deploy to ${{ github.ref_name }}
-    runs-on: [self-hosted, catalog]
-    environment: ${{ github.ref_name }}
-
+  build:
+    name: Build and test
+    # GitHub-hosted, so the tests can run: Testcontainers needs a Docker
+    # daemon, and the self-hosted runner deliberately has no access to the
+    # host's Docker socket.
+    runs-on: ubuntu-latest
+    outputs:
+      sha256: ${{ steps.digest.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v4
 
-      # Tests are NOT run here. They use Testcontainers, which needs a
-      # Docker daemon, and this runner deliberately has no access to the
-      # host's Docker socket - mounting it would let any job take over the
-      # host. The tests already ran on GitHub-hosted runners as the pull
-      # request gate; this step only produces the artifact.
-      - name: Build the JAR
-        run: ./mvnw -B clean package -DskipTests
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build and test
+        # Throwaway values: the application refuses to start without them,
+        # and the datasource is replaced by Testcontainers anyway. Real
+        # credentials are never present at build time - the JAR ships with
+        # unresolved ${PLACEHOLDER} text and is resolved on the server.
+        env:
+          DB_PASSWORD: ci_placeholder_unused
+          JWT_SECRET: ci_placeholder_jwt
+          STRIPE_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          STRIPE_MERCHANT_ID: acct_ci_placeholder
+          AWS_ACCESS_KEY: AKIACIPLACEHOLDER000
+          AWS_SECRET_KEY: ci_placeholder_aws_secret
+        run: ./mvnw -B verify
+
+      - name: Record the artifact digest
+        id: digest
+        run: |
+          SHA=$(sha256sum target/catalog-0.0.1-SNAPSHOT.jar | cut -d' ' -f1)
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "built and tested: $SHA"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catalog-jar
+          path: target/catalog-0.0.1-SNAPSHOT.jar
+          retention-days: 7
+
+  deploy:
+    name: Deploy to ${{ github.ref_name }}
+    needs: build
+    runs-on: [self-hosted, catalog]
+    # Resolves to dev, qa or prod from the branch name. That selects the
+    # environment's secrets and variables and arms its protection rules,
+    # including the required reviewer on prod. No `if:` branching needed.
+    environment: ${{ github.ref_name }}
+
+    steps:
+      # No checkout. This job needs no source code - only the artifact and
+      # the environment's configuration.
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalog-jar
+          path: artifact
+
+      - name: Verify the artifact is the one that was tested
+        run: |
+          ACTUAL=$(sha256sum artifact/catalog-0.0.1-SNAPSHOT.jar | cut -d' ' -f1)
+          EXPECTED="${{ needs.build.outputs.sha256 }}"
+          echo "expected: $EXPECTED"
+          echo "actual  : $ACTUAL"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::artifact digest does not match the tested build"
+            exit 1
+          fi
+          echo "digest matches - deploying the tested artifact"
 
       - name: Render the environment file
-        # umask 077 BEFORE the file is created, so it is never briefly
-        # world-readable. Creating it and chmod-ing afterwards leaves a
-        # window where any user on the runner could read it.
+        # umask BEFORE the file is created, so it is never briefly
+        # world-readable. Creating it and chmod-ing afterwards leaves a gap.
         run: |
           umask 077
           cat > catalog.env <<EOF
@@ -67,8 +133,8 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # Pin the host key rather than using StrictHostKeyChecking=no,
-          # which accepts whatever answers and defeats the point.
+          # Pin the host key rather than StrictHostKeyChecking=no, which
+          # accepts whatever answers and defeats the point.
           ssh-keyscan -p ${{ vars.SSH_PORT }} -H ${{ vars.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Keep the current JAR for rollback
@@ -78,11 +144,11 @@ jobs:
               'if [ -f /opt/catalog/catalog.jar ]; then cp /opt/catalog/catalog.jar /opt/catalog/catalog.jar.prev; echo "previous version saved"; else echo "no previous version - first deploy"; fi'
 
       - name: Copy artifact and configuration
-        # scp, not `ssh host "echo $SECRET > file"` - the latter puts the
-        # secret in the remote process list, visible to anyone running ps.
+        # scp rather than ssh "echo $SECRET > file", which would expose the
+        # value in the remote process list.
         run: |
           scp -i ~/.ssh/deploy_key -P ${{ vars.SSH_PORT }} \
-              target/catalog-0.0.1-SNAPSHOT.jar \
+              artifact/catalog-0.0.1-SNAPSHOT.jar \
               deploy@${{ vars.DEPLOY_HOST }}:/opt/catalog/catalog.jar.new
           scp -i ~/.ssh/deploy_key -P ${{ vars.SSH_PORT }} \
               catalog.env \
@@ -99,6 +165,15 @@ jobs:
                 sudo supervisorctl start catalog
                 sudo supervisorctl status catalog || true
               '
+
+      - name: Confirm the deployed digest on the server
+        run: |
+          REMOTE=$(ssh -i ~/.ssh/deploy_key -p ${{ vars.SSH_PORT }} \
+                   deploy@${{ vars.DEPLOY_HOST }} 'sha256sum /opt/catalog/catalog.jar | cut -d" " -f1')
+          echo "on server: $REMOTE"
+          [ "$REMOTE" = "${{ needs.build.outputs.sha256 }}" ] \
+            && echo "server is running the tested artifact" \
+            || { echo "::error::digest on server does not match"; exit 1; }
 
       - name: Wait for the service to report healthy
         id: health
@@ -130,8 +205,7 @@ jobs:
 
       - name: Remove the rendered secrets from the workspace
         # This runner is persistent: its workspace survives into the next
-        # job. Without this, the next workflow to run here inherits a file
-        # containing production credentials.
+        # job. Without this the next workflow inherits a file of credentials.
         if: always()
         run: |
           shred -u catalog.env 2>/dev/null || rm -f catalog.env
@@ -146,6 +220,9 @@ jobs:
             echo "| | |"
             echo "|---|---|"
             echo "| Commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| Artifact SHA-256 | \`${{ needs.build.outputs.sha256 }}\` |"
+            echo "| Built and tested on | \`ubuntu-latest\` |"
+            echo "| Deployed by | \`${{ runner.name }}\` |"
             echo "| Host | \`${{ vars.DEPLOY_HOST }}\` |"
             echo "| Profile | \`${{ vars.SPRING_PROFILE }}\` |"
             echo "| Reachable from your Mac | http://localhost:${{ vars.APP_PORT }}/actuator/health |"
